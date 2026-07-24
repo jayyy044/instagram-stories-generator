@@ -1,0 +1,541 @@
+.upload {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin: 0;
+}
+
+/* ---------- intro ---------- */
+
+.intro p {
+  font-size: var(--fs-lead);
+  line-height: 26px;
+  color: var(--text);
+  max-width: 52ch;
+}
+
+/* ---------- dropzone ---------- */
+
+.dropzone {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 216px;
+  margin-top: var(--s5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s3);
+  padding: var(--s7) var(--s5);
+  /* 2px in every state so nothing reflows: only colour and dash/solid change */
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--r-xl);
+  background: var(--bg);
+  cursor: pointer;
+  text-align: center;
+  transition:
+    border-color var(--t-fast) var(--ease-io),
+    background-color var(--t-fast) var(--ease-io);
+}
+
+/* Once photos are uploaded the zone is a secondary action, not the hero:
+   one row, button-height, still a full-width drop target. */
+.dropzone.is-compact {
+  min-height: 0;
+  flex-direction: row;
+  gap: var(--s2);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-md);
+  margin-top: var(--s6);
+}
+
+.dropzone.is-compact .dz-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.dropzone.is-compact .dz-headline {
+  font-size: var(--fs-body);
+  font-weight: 500;
+}
+
+.dropzone.is-compact .dz-sub {
+  display: none;
+}
+
+.dropzone:hover:not(.is-busy) {
+  border-color: var(--accent-border);
+  background: var(--accent-bg);
+}
+
+.dropzone:hover:not(.is-busy) .dz-icon {
+  color: var(--accent);
+}
+
+.dropzone:has(.dz-input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* :not(.is-busy) keeps this at the same specificity as the :hover rule above,
+   so source order decides and drag-over wins while the pointer is inside. */
+.dropzone.is-drag:not(.is-busy) {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.dropzone.is-drag:not(.is-busy) .dz-icon {
+  color: var(--accent);
+  transform: translateY(-2px) scale(1.06);
+}
+
+.dropzone.is-busy {
+  border-color: var(--border);
+  background: var(--code-bg);
+  cursor: default;
+  pointer-events: none;
+}
+
+.dropzone.is-busy .dz-icon {
+  opacity: 0.5;
+}
+
+.dz-icon {
+  color: var(--text);
+  transition:
+    transform var(--t-mid) var(--ease-out),
+    color var(--t-mid) var(--ease-out);
+}
+
+.dz-headline {
+  font-family: var(--heading);
+  font-size: var(--fs-title);
+  line-height: 26px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-h);
+}
+
+.dz-sub {
+  font-size: var(--fs-sm);
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* ---------- selected-file summary + grid ---------- */
+
+.selection {
+  margin-top: var(--s6);
+}
+
+.uploaded {
+  margin-top: var(--s6);
+}
+
+.uploaded .grid {
+  max-height: 420px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.uploaded .tile {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 72px;
+}
+
+.summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s3);
+  font-size: var(--fs-sm);
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: var(--s3);
+}
+
+.summary b {
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.grid-scroll {
+  transition:
+    max-height var(--t-slow) var(--ease-out),
+    opacity var(--t-slow) var(--ease-out);
+}
+
+.grid-scroll.is-expanded {
+  max-height: 420px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Browser-native virtualisation, zero dependencies. */
+.grid-scroll.is-expanded .tile {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 72px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: var(--s2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tile {
+  position: relative;
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--code-bg);
+  overflow: hidden;
+  transition:
+    opacity var(--t-mid) var(--ease-out),
+    filter var(--t-mid) var(--ease-out);
+}
+
+.tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tile.is-pending {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+/* inset so the grid never shifts */
+.tile.is-uploading {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.tile.is-failed {
+  outline: 2px solid var(--danger);
+  outline-offset: -2px;
+}
+
+.tile-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-full);
+  background: var(--danger);
+  color: var(--bg);
+  animation: badge-in var(--t-mid) var(--ease-out);
+}
+
+@keyframes badge-in {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+.tile-remove {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  background: var(--bg);
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+/* You cannot cancel a sequential in-flight batch, so don't show the affordance */
+.selection.is-busy .tile-remove {
+  display: none;
+}
+
+.counter-cell {
+  aspect-ratio: 1;
+}
+
+/* The counter tile IS the expand control — one button, no duplicate tab stop */
+.tile-counter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--code-bg);
+  color: var(--text-h);
+  font-family: var(--sans);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+/* ---------- action row ---------- */
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  margin-top: var(--s6);
+}
+
+.btn {
+  font-family: var(--sans);
+  font-size: var(--fs-body);
+  line-height: 23px;
+  font-weight: 500;
+  padding: 10px var(--s4);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-md);
+  background: var(--accent);
+  color: var(--bg);
+  cursor: pointer;
+  transition:
+    filter var(--t-fast) var(--ease-io),
+    background-color var(--t-fast) var(--ease-io),
+    border-color var(--t-fast) var(--ease-io);
+}
+
+.btn:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+.btn:active:not(:disabled) {
+  filter: brightness(0.85);
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+  .btn:active:not(:disabled) {
+    filter: brightness(1.18);
+  }
+}
+
+/* Recolour the surface — never dim the label, that drops it under 4.5:1. */
+.btn:disabled {
+  background: var(--code-bg);
+  color: var(--text);
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: var(--bg);
+  color: var(--text-h);
+  border-color: var(--border-strong);
+}
+
+.btn-text {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--accent);
+  cursor: pointer;
+  border-radius: var(--r-sm);
+}
+
+/* ---------- progress ---------- */
+
+.progress {
+  margin-top: var(--s4);
+}
+
+.progress-label {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s3);
+  margin-bottom: var(--s2);
+  font-size: var(--fs-meta);
+  line-height: 16px;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.progress-label b {
+  color: var(--text-h);
+  font-weight: 400;
+}
+
+.progress-track {
+  height: 4px;
+  border-radius: var(--r-full);
+  background: var(--border);
+  overflow: hidden;
+}
+
+/* linear: an eased bar decelerates at every step and reads as stalling */
+.progress-fill {
+  height: 100%;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  transition: width var(--t-fast) linear;
+}
+
+/* ---------- result / error panels ---------- */
+
+.panel {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s3);
+  margin-top: var(--s6);
+  padding: var(--s4) var(--s5);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg);
+  animation: panel-in var(--t-slow) var(--ease-out);
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* 198/200 landed is not a failure; painting it red would be a lie. */
+.panel-partial {
+  border-color: var(--accent-border);
+}
+
+.panel-error {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.panel-icon {
+  flex: 0 0 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-ok {
+  color: var(--ok);
+}
+
+.icon-danger {
+  color: var(--danger);
+}
+
+.icon-accent {
+  color: var(--accent);
+}
+
+.panel-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.panel-head {
+  font-size: var(--fs-body);
+  line-height: 23px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.panel-detail {
+  margin-top: var(--s1);
+  font-size: var(--fs-body);
+  line-height: 23px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-raw {
+  margin-top: var(--s1);
+  font-size: var(--fs-meta);
+  line-height: 16px;
+  letter-spacing: 0.01em;
+  color: var(--danger);
+}
+
+.panel-error .panel-detail {
+  font-size: var(--fs-meta);
+  line-height: 16px;
+  letter-spacing: 0.01em;
+  color: var(--danger);
+}
+
+.failures {
+  margin-top: var(--s3);
+}
+
+.failures summary {
+  font-size: var(--fs-sm);
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--accent);
+  cursor: pointer;
+  border-radius: var(--r-sm);
+}
+
+.failures ul {
+  list-style: none;
+  margin: var(--s3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.failures li {
+  min-width: 0;
+}
+
+.failed-name {
+  display: block;
+  font-size: var(--fs-body);
+  line-height: 23px;
+  color: var(--text-h);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.failed-reason {
+  display: block;
+  font-size: var(--fs-meta);
+  line-height: 16px;
+  letter-spacing: 0.01em;
+  color: var(--danger);
+}
+
+.retry-row {
+  margin-top: var(--s4);
+}
+
+@media (max-width: 600px) {
+  .dropzone {
+    min-height: 168px;
+  }
+}

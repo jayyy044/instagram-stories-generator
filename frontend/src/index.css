@@ -1,22 +1,68 @@
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
+  /* palette — light */
+  --bg: #ffffff;
+  --text: #57575e;
+  --text-h: #101013;
+  --border: #e4e4e7;
+  --border-strong: #8e8e99;
+  --code-bg: #f4f4f5;
+  --social-bg: #fafafa;
+  --accent: #0b5fce;
+  --accent-bg: rgba(11, 95, 206, 0.08);
+  --accent-border: rgba(11, 95, 206, 0.7);
+  --danger: #c0362c;
+  --danger-bg: rgba(192, 54, 44, 0.08);
+  --ok: #0f7a52;
+  /* border-first on the upload screen; kept for other screens */
   --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+    0 1px 2px rgba(16, 16, 19, 0.04), 0 8px 24px -12px rgba(16, 16, 19, 0.12);
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  --sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI',
+    system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --heading:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Display', 'Segoe UI',
+    system-ui, Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --mono:
+    ui-monospace, SFMono-Regular, 'SF Mono', 'Cascadia Mono', 'Segoe UI Mono',
+    Consolas, 'Liberation Mono', monospace;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
+  /* type scale */
+  --fs-display: 1.75rem;
+  --fs-title: 1.25rem;
+  --fs-lead: 1.0625rem;
+  --fs-body: 0.9375rem;
+  --fs-sm: 0.8125rem;
+  --fs-meta: 0.75rem;
+
+  /* spacing scale, 4px base */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 20px;
+  --s6: 24px;
+  --s7: 32px;
+  --s8: 40px;
+  --s9: 48px;
+  --s10: 64px;
+
+  /* radius scale */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-full: 999px;
+
+  /* motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-io: cubic-bezier(0.4, 0, 0.2, 1);
+  --t-fast: 120ms;
+  --t-mid: 180ms;
+  --t-slow: 260ms;
+
+  font: 16px/1.5 var(--sans);
+  letter-spacing: 0;
   color-scheme: light dark;
   color: var(--text);
   background: var(--bg);
@@ -24,25 +70,24 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+    --bg: #0d0d10;
+    --text: #a0a0aa;
+    --text-h: #f4f4f6;
+    --border: #27272c;
+    --border-strong: #63636e;
+    --code-bg: #161619;
+    --social-bg: #141418;
+    --accent: #7cb0ff;
+    --accent-bg: rgba(124, 176, 255, 0.14);
+    --accent-border: rgba(124, 176, 255, 0.7);
+    --danger: #ff8a80;
+    --danger-bg: rgba(255, 138, 128, 0.14);
+    --ok: #4ecf9a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 8px 24px -12px rgba(0, 0, 0, 0.7);
   }
 }
 
@@ -58,38 +103,82 @@ body {
 h1,
 h2 {
   font-family: var(--heading);
-  font-weight: 500;
   color: var(--text-h);
 }
 
 h1 {
-  font-size: 32px;
-  letter-spacing: -0.9px;
-  margin: 0 0 8px;
+  font-size: var(--fs-display);
+  line-height: 32px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 var(--s2);
 }
+
 h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
+  font-size: var(--fs-title);
+  line-height: 26px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--s2);
 }
+
 p {
   margin: 0;
 }
 
 code {
   font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
+  display: inline-block;
+  font-size: var(--fs-body);
+  line-height: 1.35;
+  padding: 2px var(--s2);
+  border-radius: var(--r-sm);
   color: var(--text-h);
+  background: var(--code-bg);
+  font-variant-numeric: tabular-nums;
 }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+/* Focus rings, globally. Never outline: none anywhere. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+
+/* Visually hidden but still focusable and still announced. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Colour changes are not vestibular triggers and they carry state, so they
+   come back after the blanket kill above. */
+@media (prefers-reduced-motion: reduce) {
+  .dropzone,
+  .btn,
+  .tile {
+    transition:
+      background-color 120ms linear,
+      border-color 120ms linear,
+      color 120ms linear !important;
+  }
 }
