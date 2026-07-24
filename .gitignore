@@ -1,0 +1,6 @@
+# Ignore everything, then allow back only what we want tracked.
+# Photos, datasets, probe outputs and logs stay local.
+/*
+!/.gitignore
+!/frontend/
+!/backend/
