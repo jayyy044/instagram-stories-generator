@@ -39,29 +39,31 @@
     background-color var(--t-fast) var(--ease-io);
 }
 
-/* Once photos are uploaded the zone is a secondary action, not the hero:
-   one row, button-height, still a full-width drop target. */
+/* With photos on screen the zone is a secondary action, so it is shaped like
+   the secondary button it now is. Dropping still works — the handlers moved to
+   the form, so the whole page is the target and the dashed hint isn't needed. */
 .dropzone.is-compact {
+  width: auto;
   min-height: 0;
+  margin: 0;
   flex-direction: row;
   gap: var(--s2);
-  padding: var(--s3) var(--s4);
+  padding: 10px var(--s4);
+  border: 1px solid var(--border-strong);
   border-radius: var(--r-md);
-  margin-top: var(--s6);
+  background: var(--bg);
+  color: var(--text-h);
 }
 
 .dropzone.is-compact .dz-icon {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
 }
 
 .dropzone.is-compact .dz-headline {
   font-size: var(--fs-body);
+  line-height: 23px;
   font-weight: 500;
-}
-
-.dropzone.is-compact .dz-sub {
-  display: none;
 }
 
 .dropzone:hover:not(.is-busy) {
@@ -80,13 +82,14 @@
 
 /* :not(.is-busy) keeps this at the same specificity as the :hover rule above,
    so source order decides and drag-over wins while the pointer is inside. */
-.dropzone.is-drag:not(.is-busy) {
+.upload.is-drag .dropzone:not(.is-busy) {
   border-style: solid;
   border-color: var(--accent);
   background: var(--accent-bg);
+  color: var(--accent);
 }
 
-.dropzone.is-drag:not(.is-busy) .dz-icon {
+.upload.is-drag .dropzone:not(.is-busy) .dz-icon {
   color: var(--accent);
   transform: translateY(-2px) scale(1.06);
 }
@@ -297,8 +300,15 @@
 .actions {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--s4);
   margin-top: var(--s6);
+}
+
+/* <Link> styled as a button needs the text-decoration and box reset. */
+a.btn {
+  display: inline-block;
+  text-decoration: none;
 }
 
 .btn {

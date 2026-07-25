@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import './Upload.css'
 
 // Mirrors ALLOWED_EXT in backend/server.py. Anything else is a guaranteed 400,
@@ -354,20 +355,70 @@ export default function Upload() {
   const pct = progress.total ? Math.round((progress.n / progress.total) * 100) : 0
 
   const done = uploaded ? uploaded.files : EMPTY
-  // Once photos are on the server the zone stops being the point of the page,
-  // so it shrinks to a button-sized target rather than holding the fold.
-  const compact = done.length > 0 && !busy
+  // The zone is the hero only on an empty page. With photos on screen it is a
+  // secondary action, so it becomes a normal button and the photos take the top.
+  const hero = total === 0 && done.length === 0
 
   const dz = busy
     ? { head: 'Uploading…', sub: 'Keep this tab open until it finishes' }
     : dragging
       ? { head: 'Drop to add photos', sub: 'JPG, PNG, HEIC or WebP' }
-      : total > 0 || compact
-        ? { head: 'Add more photos', sub: 'Drop them here or click to browse' }
-        : { head: 'Drop photos here', sub: 'or click to browse — JPG, PNG, HEIC or WebP' }
+      : hero
+        ? { head: 'Drop photos here', sub: 'or click to browse — JPG, PNG, HEIC or WebP' }
+        : { head: 'Add more photos', sub: 'Drop them here or click to browse' }
+
+  // One element, two placements: hero block, or a button in the action row.
+  const picker = (
+    <label className={`dropzone${hero ? '' : ' is-compact'}${busy ? ' is-busy' : ''}`}>
+      {/* A real <label> around a clipped input: click-to-browse and Enter/Space
+          both come free from the platform, no keyboard handler needed. */}
+      <input
+        className="sr-only dz-input"
+        type="file"
+        multiple
+        accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.heic,.heif,.webp"
+        disabled={busy}
+        aria-label="Choose photos to upload"
+        aria-describedby={hero ? 'dz-hint' : undefined}
+        onChange={(e) => {
+          addFiles(e.target.files)
+          // Selections accumulate, so the input must not hold the last one:
+          // clearing it lets the same file fire change again after a remove.
+          e.target.value = ''
+        }}
+      />
+      <PhotoIcon />
+      <span className="dz-headline">{dz.head}</span>
+      {hero && (
+        <span className="dz-sub" id="dz-hint">
+          {dz.sub}
+        </span>
+      )}
+    </label>
+  )
 
   return (
-    <form className="upload" onSubmit={submit}>
+    <form
+      className={`upload${dragging ? ' is-drag' : ''}`}
+      onSubmit={submit}
+      // On the form, not the zone: once photos exist the zone is a small button
+      // in the action row, and a drop anywhere on the page should still land.
+      onDragOver={(e) => e.preventDefault()}
+      onDragEnter={(e) => {
+        e.preventDefault()
+        if (!busy) setDragging(true)
+      }}
+      onDragLeave={(e) => {
+        // Crossing a child element fires leave; ignore those or it flickers.
+        if (e.currentTarget.contains(e.relatedTarget)) return
+        setDragging(false)
+      }}
+      onDrop={(e) => {
+        e.preventDefault()
+        setDragging(false)
+        if (!busy) addFiles(e.dataTransfer.files)
+      }}
+    >
       <section className="intro">
         <h2>{done.length > 0 ? 'Your photos' : 'Upload photos'}</h2>
         <p>
@@ -400,49 +451,9 @@ export default function Upload() {
         </section>
       )}
 
-      {/* A real <label> around a clipped input: click-to-browse and Enter/Space
-          both come free from the platform, no keyboard handler needed. */}
-      <label
-        className={`dropzone${dragging ? ' is-drag' : ''}${busy ? ' is-busy' : ''}${
-          compact ? ' is-compact' : ''
-        }`}
-        onDragOver={(e) => e.preventDefault()}
-        onDragEnter={(e) => {
-          e.preventDefault()
-          if (!busy) setDragging(true)
-        }}
-        onDragLeave={(e) => {
-          // Crossing a child element fires leave; ignore those or it flickers.
-          if (e.currentTarget.contains(e.relatedTarget)) return
-          setDragging(false)
-        }}
-        onDrop={(e) => {
-          e.preventDefault()
-          setDragging(false)
-          if (!busy) addFiles(e.dataTransfer.files)
-        }}
-      >
-        <input
-          className="sr-only dz-input"
-          type="file"
-          multiple
-          accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.heic,.heif,.webp"
-          disabled={busy}
-          aria-label="Choose photos to upload"
-          aria-describedby="dz-hint"
-          onChange={(e) => {
-            addFiles(e.target.files)
-            // Selections accumulate, so the input must not hold the last one:
-            // clearing it lets the same file fire change again after a remove.
-            e.target.value = ''
-          }}
-        />
-        <PhotoIcon />
-        <span className="dz-headline">{dz.head}</span>
-        <span className="dz-sub" id="dz-hint">
-          {dz.sub}
-        </span>
-      </label>
+      {/* Hero only while there is nothing to look at. Once photos exist they
+          take this slot and the zone moves into the action row as a button. */}
+      {hero && picker}
 
       {total > 0 && (
         <section className={`selection${busy ? ' is-busy' : ''}`}>
@@ -509,11 +520,27 @@ export default function Upload() {
         </section>
       )}
 
-      <div className="actions">
-        <button type="submit" className="btn" disabled={busy || total === 0}>
-          {busy ? 'Uploading…' : total === 0 ? 'Upload photos' : `Upload ${photos(total)}`}
-        </button>
-      </div>
+      {/* Add-more on the left, the thing you actually came to do on the right.
+          No disabled Upload button with nothing selected — a dead control is
+          worse than no control. */}
+      {!hero && (
+        <div className="actions">
+          {picker}
+          {(total > 0 || busy) && (
+            <button type="submit" className="btn" disabled={busy}>
+              {busy ? 'Uploading…' : `Upload ${photos(total)}`}
+            </button>
+          )}
+          {!busy && total === 0 && done.length > 0 && (
+            // The batch id travels in the URL, not in component state: leaving
+            // this page drops the state, and the id is the only handle on the
+            // photos that are already on disk.
+            <Link className="btn" to={`/select?batch=${uploaded.batch}`}>
+              Continue to photo selection
+            </Link>
+          )}
+        </div>
+      )}
 
       {busy && (
         <div className="progress">
