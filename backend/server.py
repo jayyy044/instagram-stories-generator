@@ -23,6 +23,8 @@ from urllib.parse import urlparse, parse_qs
 
 from PIL import Image, ImageOps
 
+import tagging
+
 PORT = 8002
 # ponytail: local disk under backend/. Swap UPLOADS for an S3/R2 client when
 # uploads outlive one machine or the app runs anywhere but localhost.
@@ -67,8 +69,45 @@ def view_bytes(path, w):
     return _VIEW[key]
 
 
+def _read_manifest(d):
+    try:
+        return json.loads((d / "manifest.json").read_text())
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
 def verdict_path(d):
     return d / "verdicts.json"
+
+
+# Tagging a real batch takes minutes, so it runs off-request and the UI polls.
+# In-memory only: a restart loses the status, not the work — tag_dir writes the
+# manifest every chunk and skips what's already tagged when it runs again.
+_JOBS = {}
+_JOBS_LOCK = threading.Lock()
+
+
+def start_tagging(d):
+    with _JOBS_LOCK:
+        job = _JOBS.get(d.name)
+        if job and job["state"] == "running":
+            return job
+        _JOBS[d.name] = {"state": "running", "done": 0, "total": 0, "error": None}
+
+    def run():
+        def progress(n, t):
+            with _JOBS_LOCK:
+                _JOBS[d.name].update(done=n, total=t)
+        try:
+            result = tagging.tag_dir(d, ALLOWED_EXT, progress)
+            with _JOBS_LOCK:
+                _JOBS[d.name].update(state="done", **result)
+        except Exception as e:
+            with _JOBS_LOCK:
+                _JOBS[d.name].update(state="error", error=str(e)[:300])
+
+    threading.Thread(target=run, daemon=True).start()
+    return _JOBS[d.name]
 
 
 # One writer at a time. This server is threaded so the swipe page can preload
@@ -139,6 +178,18 @@ class H(BaseHTTPRequestHandler):
                      if f.is_file() and f.suffix.lower() in ALLOWED_EXT]
             return self.json({"batch": d.name, "files": files, "count": len(files)})
 
+        if u.path == "/api/tag":
+            d = batch_dir(q.get("batch", [""])[0])
+            if not d:
+                return self.json({"error": "unknown batch"}, 404)
+            tagged = len(_read_manifest(d))
+            photos = sum(1 for f in d.iterdir()
+                         if f.is_file() and f.suffix.lower() in ALLOWED_EXT)
+            with _JOBS_LOCK:
+                job = dict(_JOBS.get(d.name, {"state": "idle"}))
+            job.update(batch=d.name, tagged=tagged, photos=photos)
+            return self.json(job)
+
         if u.path == "/api/verdicts":
             d = batch_dir(q.get("batch", [""])[0])
             if not d:
@@ -206,6 +257,16 @@ class H(BaseHTTPRequestHandler):
                 {"batch": batch, "intent": intent.strip()[:80] or "unstated",
                  "created": datetime.now().isoformat(timespec="seconds")}, indent=1))
             return self.json({"batch": batch})
+
+        if u.path == "/api/tag":
+            d = batch_dir(q.get("batch", [""])[0])
+            if not d:
+                return self.json({"error": "unknown batch"}, 400)
+            try:
+                job = start_tagging(d)
+            except Exception as e:
+                return self.json({"error": str(e)[:300]}, 500)
+            return self.json({"batch": d.name, **job})
 
         if u.path == "/api/verdict":
             d = batch_dir(q.get("batch", [""])[0])
