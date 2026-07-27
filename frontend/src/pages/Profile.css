@@ -1,0 +1,89 @@
+.profile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+}
+
+.score {
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--s4) var(--s5);
+}
+
+.score-main {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+}
+
+.score-main b {
+  font-size: 32px;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+
+.score-main span {
+  font-size: var(--fs-sm);
+}
+
+.score-sub {
+  margin-top: var(--s2);
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+.score-sub .up {
+  color: var(--ok);
+}
+
+.warn {
+  border: 1px solid var(--accent-border);
+  border-radius: var(--r-lg);
+  padding: var(--s3) var(--s4);
+  font-size: var(--fs-body);
+}
+
+.step {
+  font-size: var(--fs-meta);
+}
+
+/* The rules are prose meant to be read and argued with, so they get body
+   type, not the monospace a <pre> defaults to. */
+.rules {
+  font-family: var(--sans);
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  margin: 0;
+  padding: var(--s5);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--code-bg);
+  color: var(--text-h);
+  overflow-x: auto;
+}
+
+.runs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+.runs th,
+.runs td {
+  text-align: left;
+  padding: var(--s2) var(--s3);
+  border-bottom: 1px solid var(--border);
+}
+
+.runs th {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.muted {
+  color: var(--text);
+}

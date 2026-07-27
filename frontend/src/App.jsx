@@ -1,6 +1,7 @@
 import { Routes, Route, NavLink, Navigate } from 'react-router-dom'
 import Upload from './pages/Upload.jsx'
 import Select from './pages/Select.jsx'
+import Profile from './pages/Profile.jsx'
 import './App.css'
 
 // Each later stage of the pipeline (cull, group, sequence, songs, render)
@@ -13,6 +14,7 @@ export default function App() {
         <nav>
           <NavLink to="/upload">Upload</NavLink>
           <NavLink to="/select">Select</NavLink>
+          <NavLink to="/profile">Profile</NavLink>
         </nav>
       </header>
       <main>
@@ -20,6 +22,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/upload" replace />} />
           <Route path="/upload" element={<Upload />} />
           <Route path="/select" element={<Select />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="*" element={<p>Nothing here.</p>} />
         </Routes>
       </main>
