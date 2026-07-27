@@ -295,6 +295,33 @@
   cursor: pointer;
 }
 
+.intent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  margin-top: var(--s6);
+}
+
+.intent label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.intent input {
+  font-family: var(--sans);
+  font-size: var(--fs-body);
+  padding: 10px var(--s3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--bg);
+  color: var(--text-h);
+}
+
+.intent input::placeholder {
+  color: var(--text);
+}
+
 /* ---------- action row ---------- */
 
 .actions {

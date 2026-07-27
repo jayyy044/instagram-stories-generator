@@ -20,8 +20,11 @@ const size = (bytes) =>
     ? `${(bytes / 1024 / 1024).toFixed(1)} MB`
     : `${Math.max(1, Math.round(bytes / 1024))} KB`
 
-async function createBatch() {
-  const res = await fetch('/api/batch', { method: 'POST' })
+async function createBatch(intent) {
+  const res = await fetch('/api/batch', {
+    method: 'POST',
+    body: JSON.stringify({ intent: intent || '' }),
+  })
   if (!res.ok) throw new Error(`server said ${res.status}`)
   const { batch } = await res.json()
   if (!batch) throw new Error('no batch id in the response')
@@ -139,6 +142,7 @@ export default function Upload() {
   // What actually landed on the server, accumulated across retries and second
   // helpings. Once this is non-empty the page is a gallery, not a dropzone.
   const [uploaded, setUploaded] = useState(null)
+  const [intent, setIntent] = useState('')
 
   // Only the delta churns. Rebuilding the whole map on every selection change
   // would revoke all 200 blob URLs and mint 201 to add one photo, forcing every
@@ -318,7 +322,7 @@ export default function Upload() {
       try {
         // A second helping belongs to the same trip, so it lands in the same
         // batch directory. Minting a new id here would orphan the first one.
-        batch = uploaded ? uploaded.batch : await createBatch()
+        batch = uploaded ? uploaded.batch : await createBatch(intent)
       } catch (err) {
         setHardError({
           message: "Couldn't start the upload",
@@ -454,6 +458,23 @@ export default function Upload() {
       {/* Hero only while there is nothing to look at. Once photos exist they
           take this slot and the zone moves into the action row as a button. */}
       {hero && picker}
+
+      {/* Stated, never inferred. Blank is a valid answer — but two folders with
+          different intents is what lets the profile tell taste from intent. */}
+      {total > 0 && !uploaded && (
+        <div className="intent">
+          <label htmlFor="intent">What is this set?</label>
+          <input
+            id="intent"
+            type="text"
+            value={intent}
+            disabled={busy}
+            maxLength={80}
+            placeholder="hike, night out, lazy sunday… or leave blank"
+            onChange={(e) => setIntent(e.target.value)}
+          />
+        </div>
+      )}
 
       {total > 0 && (
         <section className={`selection${busy ? ' is-busy' : ''}`}>
