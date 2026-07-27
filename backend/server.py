@@ -23,6 +23,7 @@ from urllib.parse import urlparse, parse_qs
 
 from PIL import Image, ImageOps
 
+import learning
 import tagging
 
 PORT = 8002
@@ -87,7 +88,48 @@ _JOBS = {}
 _JOBS_LOCK = threading.Lock()
 
 
-def start_tagging(d):
+_LEARN = {"state": "idle"}
+
+
+def start_learning():
+    with _JOBS_LOCK:
+        if _LEARN.get("state") == "running":
+            return dict(_LEARN)
+        _LEARN.clear()
+        _LEARN.update(state="running", step="starting", error=None)
+
+    def run():
+        def say(msg):
+            with _JOBS_LOCK:
+                _LEARN["step"] = msg
+        try:
+            record = learning.run(UPLOADS, say)
+            with _JOBS_LOCK:
+                _LEARN.clear()
+                _LEARN.update(state="done", step="finished", error=None, last=record)
+        except Exception as e:
+            with _JOBS_LOCK:
+                _LEARN.clear()
+                _LEARN.update(state="error", step=None, error=str(e)[:300])
+
+    threading.Thread(target=run, daemon=True).start()
+    return dict(_LEARN)
+
+
+def maybe_advance(d):
+    """A fully-judged batch tags itself, then learns. The whole point is that
+    the system improves without anyone opening a terminal."""
+    photos = [f.name for f in d.iterdir()
+              if f.is_file() and f.suffix.lower() in ALLOWED_EXT]
+    if not photos or set(load_verdicts(d)) < set(photos):
+        return  # not finished judging
+    if len(_read_manifest(d)) < len(photos):
+        start_tagging(d, then_learn=True)
+    else:
+        start_learning()
+
+
+def start_tagging(d, then_learn=False):
     with _JOBS_LOCK:
         job = _JOBS.get(d.name)
         if job and job["state"] == "running":
@@ -102,6 +144,8 @@ def start_tagging(d):
             result = tagging.tag_dir(d, ALLOWED_EXT, progress)
             with _JOBS_LOCK:
                 _JOBS[d.name].update(state="done", **result)
+            if then_learn:
+                start_learning()
         except Exception as e:
             with _JOBS_LOCK:
                 _JOBS[d.name].update(state="error", error=str(e)[:300])
@@ -190,6 +234,11 @@ class H(BaseHTTPRequestHandler):
             job.update(batch=d.name, tagged=tagged, photos=photos)
             return self.json(job)
 
+        if u.path == "/api/learn":
+            with _JOBS_LOCK:
+                job = dict(_LEARN)
+            return self.json({**job, **learning.current()})
+
         if u.path == "/api/verdicts":
             d = batch_dir(q.get("batch", [""])[0])
             if not d:
@@ -258,6 +307,9 @@ class H(BaseHTTPRequestHandler):
                  "created": datetime.now().isoformat(timespec="seconds")}, indent=1))
             return self.json({"batch": batch})
 
+        if u.path == "/api/learn":
+            return self.json(start_learning())
+
         if u.path == "/api/tag":
             d = batch_dir(q.get("batch", [""])[0])
             if not d:
@@ -301,6 +353,8 @@ class H(BaseHTTPRequestHandler):
                 # Always answer. An exception escaping here closes the socket
                 # with no status line, and the client reads that as success.
                 return self.json({"error": f"could not save: {e}"}, 500)
+            if verdict is not None:
+                maybe_advance(d)
             return self.json({"name": name, "verdict": verdict, "count": count})
 
         if u.path != "/api/upload":
