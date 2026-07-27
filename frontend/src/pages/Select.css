@@ -1,0 +1,213 @@
+.swipe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.swipe-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s4);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.counter b {
+  color: var(--text-h);
+}
+
+.running {
+  display: flex;
+  gap: var(--s2);
+  flex-wrap: wrap;
+}
+
+.chip {
+  padding: 2px var(--s2);
+  border-radius: var(--r-full);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.chip-cut {
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+  color: var(--danger);
+}
+
+.chip-edit {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--accent);
+}
+
+.chip-keep {
+  border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+  color: var(--ok);
+}
+
+/* Fixed height so the frame never resizes between a portrait and a landscape
+   shot — a stage that jumps moves the buttons under a moving cursor. Sized off
+   the chrome around it (~300px of header, filename, buttons and footer) so the
+   choices stay above the fold on a laptop instead of below it. */
+.stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: clamp(220px, calc(100vh - 300px), 560px);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--code-bg);
+  overflow: hidden;
+}
+
+.photo {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.preload {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.unreadable {
+  text-align: center;
+  padding: var(--s6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.filename {
+  font-family: var(--mono);
+  font-size: var(--fs-meta);
+  color: var(--text);
+  text-align: center;
+  word-break: break-all;
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s3);
+}
+
+.choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--s3) var(--s2);
+  font-family: var(--sans);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--bg);
+  color: var(--text-h);
+  cursor: pointer;
+  transition:
+    border-color var(--t-fast) var(--ease-io),
+    background-color var(--t-fast) var(--ease-io),
+    color var(--t-fast) var(--ease-io);
+}
+
+.choice-arrow {
+  font-size: 18px;
+  line-height: 22px;
+}
+
+.choice-label {
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+.choice-hint {
+  font-size: var(--fs-meta);
+  color: var(--text);
+  text-align: center;
+}
+
+.choice-cut:hover {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.choice-edit:hover {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.choice-keep:hover {
+  border-color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 12%, transparent);
+  color: var(--ok);
+}
+
+.choice:hover .choice-hint {
+  color: inherit;
+}
+
+.swipe-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s4);
+  font-size: var(--fs-sm);
+}
+
+.swipe-foot .btn-text:disabled {
+  color: var(--text);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tally {
+  display: flex;
+  gap: var(--s5);
+  list-style: none;
+  padding: 0;
+  margin: var(--s4) 0 0;
+  font-size: var(--fs-body);
+}
+
+.tally b {
+  color: var(--text-h);
+  font-variant-numeric: tabular-nums;
+}
+
+.done-actions {
+  display: flex;
+  gap: var(--s3);
+  margin-top: var(--s6);
+}
+
+.back {
+  margin-top: var(--s5);
+}
+
+.photo {
+  animation: fade-in var(--t-mid) var(--ease-out);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .stage {
+    height: clamp(200px, calc(100vh - 260px), 420px);
+  }
+
+  .choice-hint {
+    display: none;
+  }
+}

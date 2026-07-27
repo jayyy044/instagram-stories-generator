@@ -36,7 +36,22 @@ nav a.active {
   padding-bottom: 6px;
 }
 
-.error {
+/* Body links. Without this they fall back to the UA's blue/visited-purple,
+   which reads as a different design system sitting next to the accent. */
+main a:not(.btn):not(nav a) {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+main a:not(.btn):not(nav a):hover {
+  text-decoration: underline;
+}
+
+/* Two classes deep so it outranks `.intro p`, which otherwise repaints an
+   error message in ordinary body colour. */
+.error,
+.intro p.error,
+p.error {
   color: var(--danger);
 }
 
