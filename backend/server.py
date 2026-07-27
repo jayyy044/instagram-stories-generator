@@ -10,14 +10,18 @@ since cgi was removed in 3.13, and per-file requests give the UI free progress.
 Run: python backend/server.py     (vite proxies /api here, so no CORS needed)
 """
 
+import io
 import json
 import os
 import re
 import shutil
+import threading
 from datetime import datetime
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
+
+from PIL import Image, ImageOps
 
 PORT = 8002
 # ponytail: local disk under backend/. Swap UPLOADS for an S3/R2 client when
@@ -25,6 +29,10 @@ PORT = 8002
 UPLOADS = Path(__file__).parent / "uploads"
 
 ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp"}
+# Same three the swipe loop has always used: cut / edit / keep. None means undo.
+# Redundancy is deliberately not here — that's a group judgement, not a per-photo
+# one, which is what the duplicate key got wrong. See decisions D15.
+VERDICTS = {"cut", "edit", "keep", None}
 MAX_BYTES = 50 * 1024 * 1024  # a HEIC burst frame runs large; 50MB is slack
 BATCH_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{6}$")
 
@@ -40,6 +48,59 @@ def safe_name(raw):
     if re.search(r'[\x00-\x1f<>:"|?*/]', name):
         return None
     return name[:120]
+
+
+# Same trick as resolve.py: serving multi-MB originals to the browser is slow
+# and exif_transpose is not optional — without it, portrait phone shots arrive
+# sideways and every judgement made on them is made on a rotated photo.
+_VIEW = {}
+
+
+def view_bytes(path, w):
+    key = (str(path), w, path.stat().st_mtime_ns)
+    if key not in _VIEW:
+        im = ImageOps.exif_transpose(Image.open(path)).convert("RGB")
+        im.thumbnail((w, w), Image.LANCZOS)
+        buf = io.BytesIO()
+        im.save(buf, "JPEG", quality=82)
+        _VIEW[key] = buf.getvalue()
+    return _VIEW[key]
+
+
+def verdict_path(d):
+    return d / "verdicts.json"
+
+
+# One writer at a time. This server is threaded so the swipe page can preload
+# the next photo while POSTing a verdict, and an unlocked read-modify-write
+# loses votes: two threads both read {a}, each adds one key, last write wins.
+_VERDICT_LOCK = threading.Lock()
+
+
+def load_verdicts(d):
+    p = verdict_path(d)
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text())
+    except json.JSONDecodeError:
+        # Never silently return {} — that reads as "nothing judged yet" and the
+        # next save overwrites a whole session. Keep the file, start clean.
+        p.rename(p.with_suffix(f".corrupt-{datetime.now():%Y%m%d-%H%M%S}.json"))
+        return {}
+    except OSError:
+        return {}
+
+
+def save_verdicts(d, verdicts):
+    # Unique temp name per writer: a shared "verdicts.json.tmp" lets two threads
+    # interleave their writes and then promote the wreckage with replace().
+    tmp = verdict_path(d).with_suffix(f".{os.getpid()}.{threading.get_ident()}.tmp")
+    try:
+        tmp.write_text(json.dumps(verdicts, indent=1))
+        tmp.replace(verdict_path(d))
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def batch_dir(batch, create=False):
@@ -65,13 +126,49 @@ class H(BaseHTTPRequestHandler):
 
     def do_GET(self):
         u = urlparse(self.path)
+        q = parse_qs(u.query)
+
         if u.path.startswith("/api/batch/"):
             d = batch_dir(u.path[len("/api/batch/"):])
             if not d:
                 return self.json({"error": "unknown batch"}, 404)
             files = [{"name": f.name, "size": f.stat().st_size}
-                     for f in sorted(d.iterdir()) if f.is_file()]
+                     for f in sorted(d.iterdir())
+                     if f.is_file() and f.suffix.lower() in ALLOWED_EXT]
             return self.json({"batch": d.name, "files": files, "count": len(files)})
+
+        if u.path == "/api/verdicts":
+            d = batch_dir(q.get("batch", [""])[0])
+            if not d:
+                return self.json({"error": "unknown batch"}, 404)
+            return self.json({"batch": d.name, "verdicts": load_verdicts(d)})
+
+        if u.path == "/api/photo":
+            d = batch_dir(q.get("batch", [""])[0])
+            name = safe_name(q.get("name", [""])[0])
+            if not d or not name:
+                return self.json({"error": "unknown photo"}, 404)
+            path = d / name
+            if not path.is_file():
+                return self.json({"error": "unknown photo"}, 404)
+            try:
+                w = max(200, min(3000, int(q.get("w", ["1400"])[0])))
+            except ValueError:
+                w = 1400
+            try:
+                body = view_bytes(path, w)
+            except Exception:
+                # HEIC needs pillow-heif, which is blocked on this machine, so
+                # the UI has to cope with a photo it cannot show. See D4.
+                return self.json({"error": "cannot decode this image"}, 415)
+            self.send_response(200)
+            self.send_header("Content-Type", "image/jpeg")
+            self.send_header("Content-Length", str(len(body)))
+            # A name inside a batch is immutable, so let the browser keep it.
+            self.send_header("Cache-Control", "private, max-age=3600")
+            self.end_headers()
+            return self.wfile.write(body)
+
         self.json({"error": "not found"}, 404)
 
     def do_POST(self):
@@ -82,6 +179,41 @@ class H(BaseHTTPRequestHandler):
             batch = datetime.now().strftime("%Y-%m-%d-%H%M%S")
             batch_dir(batch, create=True)
             return self.json({"batch": batch})
+
+        if u.path == "/api/verdict":
+            d = batch_dir(q.get("batch", [""])[0])
+            if not d:
+                return self.json({"error": "unknown batch"}, 400)
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                body = json.loads(self.rfile.read(length) or b"{}")
+            except (ValueError, json.JSONDecodeError):
+                return self.json({"error": "bad body"}, 400)
+
+            name = safe_name(body.get("name", ""))
+            verdict = body.get("verdict")
+            if not name or not (d / name).is_file():
+                return self.json({"error": "unknown photo"}, 400)
+            if verdict not in VERDICTS:
+                # Not sorted(VERDICTS) — the set holds None, and sorting mixed
+                # types raises, which would crash the error path itself.
+                return self.json({"error": "verdict must be cut, edit, keep or null"}, 400)
+
+            # Read-modify-write has to be atomic as a whole, not just the write.
+            try:
+                with _VERDICT_LOCK:
+                    verdicts = load_verdicts(d)
+                    if verdict is None:
+                        verdicts.pop(name, None)  # undo
+                    else:
+                        verdicts[name] = verdict
+                    save_verdicts(d, verdicts)
+                    count = len(verdicts)
+            except OSError as e:
+                # Always answer. An exception escaping here closes the socket
+                # with no status line, and the client reads that as success.
+                return self.json({"error": f"could not save: {e}"}, 500)
+            return self.json({"name": name, "verdict": verdict, "count": count})
 
         if u.path != "/api/upload":
             return self.json({"error": "not found"}, 404)
@@ -142,6 +274,47 @@ def demo():
     assert batch_dir("2026-07-24") is None            # right shape, wrong length
     assert batch_dir("") is None
     assert BATCH_RE.match("2026-07-24-143205")
+
+    # Verdicts round-trip, including undo, without touching a real batch.
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        assert load_verdicts(d) == {}
+        save_verdicts(d, {"a.jpg": "keep"})
+        assert load_verdicts(d) == {"a.jpg": "keep"}
+        v = load_verdicts(d)
+        v.pop("a.jpg", None)
+        save_verdicts(d, v)
+        assert load_verdicts(d) == {}
+        assert not verdict_path(d).with_suffix(".json.tmp").exists()
+    # Concurrent writers must not lose a verdict or shred the file. Without the
+    # lock this loses entries and occasionally leaves invalid JSON on disk.
+    with tempfile.TemporaryDirectory() as tmp:
+        d = Path(tmp)
+        names = [f"p{n:03d}.jpg" for n in range(60)]
+
+        def writer(name):
+            with _VERDICT_LOCK:
+                v = load_verdicts(d)
+                v[name] = "keep"
+                save_verdicts(d, v)
+
+        threads = [threading.Thread(target=writer, args=(n,)) for n in names]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        final = load_verdicts(d)
+        assert len(final) == len(names), f"lost verdicts: {len(final)} of {len(names)}"
+        assert not list(d.glob("*.tmp")), "left a temp file behind"
+
+    assert "keep" in VERDICTS and None in VERDICTS and "duplicate" not in VERDICTS
+    # The rejection path must not raise while building its own message.
+    try:
+        sorted(VERDICTS)
+        raise AssertionError("expected sorting a None-bearing set to raise")
+    except TypeError:
+        pass
     print("selftest ok")
 
 
@@ -153,4 +326,6 @@ if __name__ == "__main__":
     UPLOADS.mkdir(parents=True, exist_ok=True)
     print(f"\n  uploads -> {UPLOADS}")
     print(f"  http://127.0.0.1:{PORT}\n")
-    HTTPServer(("127.0.0.1", PORT), H).serve_forever()
+    # Threading: the swipe view preloads the next photo while showing the
+    # current one, and a single-threaded server makes the second request wait.
+    ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()
