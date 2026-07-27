@@ -16,7 +16,7 @@ import os
 import re
 import shutil
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -75,6 +75,8 @@ def verdict_path(d):
 # the next photo while POSTing a verdict, and an unlocked read-modify-write
 # loses votes: two threads both read {a}, each adds one key, last write wins.
 _VERDICT_LOCK = threading.Lock()
+# Separate lock: allocating a batch id must not wait on a verdict write.
+_BATCH_LOCK = threading.Lock()
 
 
 def load_verdicts(d):
@@ -176,8 +178,33 @@ class H(BaseHTTPRequestHandler):
         q = parse_qs(u.query)
 
         if u.path == "/api/batch":
-            batch = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-            batch_dir(batch, create=True)
+            # The id is second-resolution, so two batches started in the same
+            # second would collide and silently merge into one directory. Walk
+            # forward to the first free id, under a lock so two threads can't
+            # both claim it.
+            with _BATCH_LOCK:
+                t = datetime.now()
+                for _ in range(120):
+                    batch = t.strftime("%Y-%m-%d-%H%M%S")
+                    if not (UPLOADS / batch).exists():
+                        break
+                    t += timedelta(seconds=1)
+                else:
+                    return self.json({"error": "could not allocate a batch id"}, 503)
+                d = batch_dir(batch, create=True)
+            # Intent is stated, never inferred — "lazy sunday", "night out".
+            # learn.py needs it to tell stable taste from per-folder intent;
+            # without it a hike teaches the profile that portraits get cut.
+            intent = ""
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if length:
+                    intent = str(json.loads(self.rfile.read(length)).get("intent", ""))
+            except (ValueError, json.JSONDecodeError, AttributeError):
+                intent = ""
+            (d / "meta.json").write_text(json.dumps(
+                {"batch": batch, "intent": intent.strip()[:80] or "unstated",
+                 "created": datetime.now().isoformat(timespec="seconds")}, indent=1))
             return self.json({"batch": batch})
 
         if u.path == "/api/verdict":
