@@ -99,7 +99,7 @@ def api_key():
         raise RuntimeError("no ANTHROPIC_API_KEY and no backend/.env.local")
 
     path = None
-    for line in local.read_text().splitlines():
+    for line in local.read_text(encoding="utf-8").splitlines():
         if line.strip().startswith("CLAUDE_ENV_FILE="):
             path = Path(line.split("=", 1)[1].strip())
     if not path or not path.exists():
@@ -161,7 +161,7 @@ def tag_dir(d, exts, on_progress=None):
     """Tag every untagged photo in `d`. Returns {tagged, skipped, total}."""
     manifest_path = d / "manifest.json"
     try:
-        existing = json.loads(manifest_path.read_text()) if manifest_path.exists() else []
+        existing = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else []
     except (json.JSONDecodeError, OSError):
         existing = []
     done = {p["file"] for p in existing}
@@ -186,7 +186,7 @@ def tag_dir(d, exts, on_progress=None):
                 tagged.append(g)
         # Written every chunk: a failure at photo 90 must not discard 89.
         tmp = manifest_path.with_suffix(f".{threading.get_ident()}.tmp")
-        tmp.write_text(json.dumps(tagged, indent=1))
+        tmp.write_text(json.dumps(tagged, indent=1), encoding="utf-8")
         tmp.replace(manifest_path)
         if on_progress:
             on_progress(min(i + CHUNK, len(todo)), len(todo))
@@ -206,7 +206,7 @@ def demo():
         assert tag_dir(d, {".jpg"}) == {"tagged": 0, "skipped": 0, "total": 0}
         # A fully-tagged dir must also skip without calling out.
         (d / "a.jpg").write_bytes(b"not really a jpeg")
-        (d / "manifest.json").write_text(json.dumps([{"file": "a.jpg"}]))
+        (d / "manifest.json").write_text(json.dumps([{"file": "a.jpg"}]), encoding="utf-8")
         assert tag_dir(d, {".jpg"}) == {"tagged": 0, "skipped": 1, "total": 1}
     print("tagging selftest ok")
 

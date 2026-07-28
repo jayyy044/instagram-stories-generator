@@ -29,7 +29,10 @@ import tagging
 
 HERE = Path(__file__).parent
 PROFILE_DIR = HERE / "profile"
-PROFILE_MD = PROFILE_DIR / "taste-profile.md"
+# The profile is prose, but it is stored as JSON, not as a .md — notes live in
+# the vault, and a stray markdown file in the repo is the kind of thing that
+# gets mistaken for documentation.
+PROFILE_JSON = PROFILE_DIR / "profile.json"
 HISTORY = PROFILE_DIR / "history.json"
 
 # Tagging deliberately pins the old model for vocabulary consistency; reasoning
@@ -188,7 +191,7 @@ def current():
     hist = _read(HISTORY, [])
     kept = [h for h in hist if h.get("kept")]
     return {
-        "profile": PROFILE_MD.read_text(encoding="utf-8") if PROFILE_MD.exists() else None,
+        "profile": _read(PROFILE_JSON, {}).get("profile"),
         "score": kept[-1]["with_rules"] if kept else None,
         "runs": len(hist),
         "history": hist[-10:],
@@ -260,7 +263,8 @@ def run(uploads, on_progress=None):
 
     if kept:
         PROFILE_DIR.mkdir(parents=True, exist_ok=True)
-        PROFILE_MD.write_text(profile, encoding="utf-8")
+        PROFILE_JSON.write_text(json.dumps({"profile": profile, "at": record["at"]},
+                                           indent=1), encoding="utf-8")
         say(f"kept: {new_ok}/{n} vs {base_ok}/{n} baseline")
     else:
         say(f"discarded: {new_ok}/{n} did not beat "
